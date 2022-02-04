@@ -1,0 +1,77 @@
+1. Using `users`, write a query that shows how many users have been created each month for the last 8 months.
+SELECT
+  COUNT(id) as countUsers,
+  EXTRACT(MONTH FROM created_at) as mnth
+FROM
+  users
+WHERE
+  DATEDIFF(MONTH, created_at, GETDATE()) <= 8
+ GROUP BY mnth
+ 
+2. Using `conversions` and `stores`, write a query that shows the 
+(1) average transaction size per customer at each store along with 
+(2) the # of orders by that customer at that store. 
+Limit USD currency. 
+Show the first 100 customer-store combinations, ordered from highest number of orders by that customer to least
+
+SELECT store_id, user_id, AVG(amount) as avg_transaction, COUNT(user_id) as count_orders
+FROM stores LEFT JOIN conversions ON stores.store_id = conversions.store_id
+WHERE currency = 'USD'
+GROUP BY user_id, store_id
+ORDER BY count_orders DESC 
+LIMIT 100
+
+3. Using `stores`, `conversions`  and `category_kickback, write a query that shows for each
+month and category 
+(1) how many transactions took place for each category 
+(2) how much money was earned by each category, 
+(3) how many customers shopped at each category,
+(4)the total $ in kickbacks that must be paid to that category during that month.
+Limit USD
+
+SELECT category, 
+	EXTRACT(MONTH FROM transaction_time) as mnth, 
+	COUNT(amount) as count_transactions, 
+	SUM(amount) as sum_category, 
+	COUNT(user_id) as count_users, 
+	(CASE 
+		WHEN transaction_time BETWEEN valid_start AND valid_end THEN discount_percentage*amount 
+	END) as kickback_amt
+FROM stores 
+	LEFT JOIN conversions ON stores.store_id = conversions.store_id
+	LEFT JOIN category_kickbacks ON stores.category = category_kicksbacks.category
+WHERE currency = 'USD'
+GROUP BY category, mnth
+
+4. Using `pageviews`, write a query that shows:
+each user, session,
+the page viewed,
+which page the user came from previously. 
+Add on a column ranking each page view in a session from 1 (the first page they viewed) to N (the last page they viewed in their session).
+
+###For #4 and #5, I assumed each individual visit to a page is one 'session'.
+SELECT
+  user_id,
+  session_id,
+  endpoint as page_viewed,
+  LAG(page_viewed, 1) OVER (PARTITION BY user_id ORDER BY event_time DESC) as previous_page,
+  RANK() OVER (PARTITION BY user_id ORDER BY event_time ASC) as page_rank
+FROM
+  pageviews
+
+5. Write a query that shows how many times each page was loaded as the second page in a
+session over the last 30 days. Calculate both 
+(1) the times the page was loaded and 
+(2) the number of users who visited the page as the second page
+
+SELECT *
+FROM 
+	(SELECT 
+		endpoint as page, 
+		COUNT(second_page) as count_pgload,
+		COUNT(user_id) as count_users,
+		RANK() OVER (PARTITION BY user_id ORDER BY event_time ASC) as second_page
+	FROM pageviews
+	WHERE second_page = 2 AND DATEDIFF(DAY, event_time, GETDATE()) <= 30
+	) second
+GROUP BY page

@@ -1,3 +1,3 @@
 # SQL-Assessments
 
-SQL Assessments for interviews.
+SQL Assessments for interviews including complex SQL queries.
